@@ -54,13 +54,13 @@ class Scraping extends Command
      */
     public function handle()
     {
-        // $this->deleteStoreItem();
-        // $this->deleteStoreItemDetail();
+        $this->deleteStoreItem();
+        $this->deleteStoreItemDetail();
 
-        // $this->getCurrencyApi();
+        $this->getCurrencyApi();
 
-        // $this->getStoreItems();
-        // $this->getItemDetails();
+        $this->getStoreItems();
+        $this->getItemDetails();
         
         $this->exportCsvAndZipImages();
         return 0;
@@ -137,8 +137,8 @@ class Scraping extends Command
             $org_price = $this->getCurrency($html, "skuCalPrice");
             $discount_price = $org_price - $price;
             $discount_per = $this->getJsonText($html, "discount", true);
-            $colors = $this->getColorList($html);
-            $sizes = $this->getSizeList($html);
+            $colors = $this->getPropertyList($html, 1);
+            $sizes = $this->getPropertyList($html, 2);
             $review_point = $this->getJsonText($html, "averageStar");
             $review_count = $this->getJsonText($html, "totalValidNum", true);
             $sales = $this->getJsonText($html, "tradeCount", true);
@@ -200,6 +200,11 @@ class Scraping extends Command
     private function getJsonText($html, $target, $isNumber = false)
     {
         $jsonTargetText = '"' . $target . '":' . ($isNumber ? '' : '"');
+        if (strpos($html, $jsonTargetText) == false)
+        {
+            return $isNumber == true ? 0 : "";
+        }
+
         $jsonStartPos = strpos($html, $jsonTargetText) + strlen($jsonTargetText);
         $cutHtml = substr($html, $jsonStartPos);
         $targetLength = strpos($cutHtml, ($isNumber ? ',' : '",'));
@@ -232,36 +237,25 @@ class Scraping extends Command
         return round($amount * $jpy);
     }
 
-    private function getColorList($html)
+    private function getPropertyList($html, $hierarchy)
     {
-        if (strpos($html, '"Color","skuPropertyValues":') > 0)
-        {
-            $target = '"Color","skuPropertyValues":';
-            $jsonStartPos = strpos($html, $target) + strlen($target);
-        }
-        else
-        {
-            $target = '"&#33394;","skuPropertyValues":';
-            $jsonStartPos = strpos($html, $target) + strlen($target);
-        }
+        $target = '"skuPropertyValues":';
+        $offset = 0;
+        $jsonStartPos = -1;
 
-        return $this->getList($html, $jsonStartPos);
-    }
-
-    private function getSizeList($html)
-    {
-        if (strpos($html, '"Size","skuPropertyValues":') > 0)
+        while ($hierarchy > 0)
         {
-            $target = '"Size","skuPropertyValues":';
-            $jsonStartPos = strpos($html, $target) + strlen($target);
-        }
-        else
-        {
-            $target = '"&#12469;&#12452;&#12474;","skuPropertyValues":';
-            $jsonStartPos = strpos($html, $target) + strlen($target);
-        }
+            $jsonStartPos = strpos($html, $target, $offset);
+            $offset = $jsonStartPos;
+            $hierarchy--;
 
-        return $this->getList($html, $jsonStartPos);
+            if ($jsonStartPos > 0 && $hierarchy <= 0)
+            {
+                $jsonStartPos = $jsonStartPos + strlen($target);
+                return $this->getList($html, $jsonStartPos);
+            }
+        }
+        return "";
     }
 
     private function getList($html, $jsonStartPos)
@@ -369,7 +363,7 @@ class Scraping extends Command
             $item->item_name,                                           // 商品名
             '',                                                         // 種類ID
             strtoupper($color) . ":" . strtoupper($size) . "サイズ",     // 種類名
-            '',                                                         // 説明
+            $this::HOST . sprintf($this::ITEM_URL, $itemId),            // 説明 (商品ページのURLを入れておく)
             $item->price + 1800,                                        // 価格（送料とか利益とか全部計算する）
             1,                                                          // 税率
             count(explode(",", $item->sizes)) * 1000,                   // 在庫数
