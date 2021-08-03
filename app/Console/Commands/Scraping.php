@@ -153,7 +153,7 @@ class Scraping extends Command
                 'price' => $price,
                 'org_price' => $org_price,
                 'discount_price' => $discount_price,
-                'discount_per' => $discount_per,
+                'discount_per' => intval($discount_per),
                 'colors' => $colors,
                 'sizes' => $sizes,
                 'review_point' => $review_point,
@@ -296,6 +296,10 @@ class Scraping extends Command
         {
             $colors = explode(",", $item->colors);
             $sizes = explode(",", $item->sizes);
+            if (count($sizes) == 0)
+            {
+                $sizes = [""];
+            }
 
             if ($rowCount + (count($colors) * count($sizes)) > $this::BASE_MAX_REGIST)
             {
@@ -363,7 +367,7 @@ class Scraping extends Command
             $item->item_name,                                           // 商品名
             '',                                                         // 種類ID
             strtoupper($color) . ":" . strtoupper($size) . "サイズ",     // 種類名
-            $this::HOST . sprintf($this::ITEM_URL, $itemId),            // 説明 (商品ページのURLを入れておく)
+            $this::HOST . sprintf($this::ITEM_URL, $item->item_id),     // 説明 (商品ページのURLを入れておく)
             $item->price + 1800,                                        // 価格（送料とか利益とか全部計算する）
             1,                                                          // 税率
             count(explode(",", $item->sizes)) * 1000,                   // 在庫数
