@@ -9,17 +9,35 @@ use ZipArchive;
 
 class Scraping extends Command
 {
+    // ==============================
+    // 設定項目
+    // ==============================
+
+    // BASE 決済手数料率(%)
+    const PLATFORM_FEE_PER = 3.6;
+
+    // 国内送料(円)
+    const POSTAGE_PRICE = 700;
+
+    // 利益をいくら上乗せするか(円)
+    const PROFIT_PRICE = 600;
+
+    // 1ドルあたりの為替調整(円)
+    const CURRENCY_AJUSTMENT = 3.6;
+
+
+    // 定数
     const HOST = 'https://ja.aliexpress.com';
     const SEARCH_URL = '/store/sale-items/%s/%d.html'; // 1:StoreId, 2:PageNo
     const ITEM_URL = '/item/%s.html'; // 1:ItemId
 
-    const BASE_MAX_REGIST = 1000;
-    const CURRENCY_AJUSTMENT = 3.6;
-    const SLEEP_TIME = 3;
+    const BASE_MAX_REGIST = 1000; // (件) 1日にBASEに商品登録出来る上限数
+    const SLEEP_TIME = 3; // (秒) アイテム詳細スクレイピング間隔（短くしすぎると不正アクセスになります）
 
-    const CSV_FILE_PATH = 'app/base/%s_%s_%03d.csv';
-    const ZIP_FILE_PATH = 'app/base/%s_%s_%03d.zip';
-    const TEMP_IMAGE_PATH = 'app/temp_image/%s';
+    const CSV_FILE_PATH = 'app/base/%s_%s_%03d.csv'; // 1:StoreId, 2:ItemId, 3:Sequence
+    const ZIP_FILE_PATH = 'app/base/%s_%s_%03d.zip'; // 1:StoreId, 2:ItemId, 3:Sequence
+    const TEMP_IMAGE_PATH = 'app/temp_image/%s'; // 1:FileName
+
 
     private $currency = 0;
 
@@ -54,15 +72,22 @@ class Scraping extends Command
      */
     public function handle()
     {
+        // 指定されたストアのデータ初期化
         $this->deleteStoreItem();
         $this->deleteStoreItemDetail();
 
+        // ドルから円に戻すために現在の為替相場を取得
         $this->getCurrencyApi();
 
+        // ストアの商品一覧を取得
         $this->getStoreItems();
+
+        // 商品の詳細情報を取得
         $this->getItemDetails();
         
+        // BASEの一括登録用CSVと画像Zipファイルを作成
         $this->exportCsvAndZipImages();
+
         return 0;
     }
 
@@ -362,18 +387,20 @@ class Scraping extends Command
 
     private function generateRow($item, $color, $size)
     {
+        $salePrice = intval($item->price * $this::PLATFORM_FEE_PER / 100) + $this::POSTAGE_PRICE + $this::PROFIT_PRICE;
+
         $data = [
             '',                                                         // 商品ID
             $item->item_name,                                           // 商品名
             '',                                                         // 種類ID
-            strtoupper($color) . ":" . strtoupper($size) . "サイズ",     // 種類名
+            strtoupper($color) . " " . strtoupper($size),               // 種類名
             $this::HOST . sprintf($this::ITEM_URL, $item->item_id),     // 説明 (商品ページのURLを入れておく)
-            $item->price + 1800,                                        // 価格（送料とか利益とか全部計算する）
+            $salePrice,                                                 // 価格（送料とか利益とか手数料とか全部計算する）
             1,                                                          // 税率
-            count(explode(",", $item->sizes)) * 1000,                   // 在庫数
-            1,                                                          // 公開状態
+            count(explode(",", $item->sizes)) * 100,                    // 在庫数
+            0,                                                          // 公開状態
             1,                                                          // 表示順
-            1000,                                                       // 種類在庫数
+            100,                                                        // 種類在庫数
         ];
 
         $images = explode(",", $item->images);
