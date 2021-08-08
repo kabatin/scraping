@@ -336,12 +336,14 @@ class Scraping extends Command
                 $rowCount = 0;
             }
 
+            $no = 1;
             foreach ($colors as $color)
             {
                 foreach ($sizes as $size)
                 {
-                    $rows[] = $this->generateRow($item, $color, $size);
+                    $rows[] = $this->generateRow($item, $color, $size, $no);
                     $rowCount++;
+                    $no++;
                 }
             }
 
@@ -385,7 +387,7 @@ class Scraping extends Command
         fclose($file);
     }
 
-    private function generateRow($item, $color, $size)
+    private function generateRow($item, $color, $size, $no)
     {
         $salePrice = intval($item->price * $this::PLATFORM_FEE_PER / 100) + $this::POSTAGE_PRICE + $this::PROFIT_PRICE;
 
@@ -394,7 +396,7 @@ class Scraping extends Command
             $item->item_name,                                           // 商品名
             '',                                                         // 種類ID
             strtoupper($color) . " " . strtoupper($size),               // 種類名
-            $this::HOST . sprintf($this::ITEM_URL, $item->item_id),     // 説明 (商品ページのURLを入れておく)
+            $this->getItemDescription($item, $color, $size),            // 説明 (商品ページURLとかレビュー情報とか販売数を入れてある)
             $salePrice,                                                 // 価格（送料とか利益とか手数料とか全部計算する）
             1,                                                          // 税率
             count(explode(",", $item->sizes)) * 100,                    // 在庫数
@@ -418,11 +420,20 @@ class Scraping extends Command
             }
         }
 
-        $data[] = $item->item_id;                               // 商品コード（アイテムID）
-        $data[] = $color . $size;                               // 種類コード（カラー＋サイズ）
-        $data[] = $this->option("store_id") . $color . $size;   // JAN/GTIN（ストアID＋カラー＋サイズ）
+        $data[] = $item->item_id;                                   // 商品コード（アイテムID）
+        $data[] = $item->item_id . "_" . $no;                       // 種類コード（アイテムID＋連番）
+        $data[] = $this->option("store_id") . $item->item_id . $no; // JAN/GTIN（ストアID＋カラー＋サイズ）
 
         return $data;
+    }
+
+    private function getItemDescription($item, $color, $size)
+    {
+        $description = $this::HOST . sprintf($this::ITEM_URL, $item->item_id) . "\n\n";
+        $description = $description . "レビュー: " . $item->review_point . "\n";
+        $description = $description . "レビュー数: " . $item->review_count . "\n";
+        $description = $description . "販売数: " . $item->sales . "\n";
+        return $description;
     }
 
     private function downloadImages($item)
