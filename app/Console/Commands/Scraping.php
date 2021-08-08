@@ -389,7 +389,9 @@ class Scraping extends Command
 
     private function generateRow($item, $color, $size, $no)
     {
-        $salePrice = intval($item->price * $this::PLATFORM_FEE_PER / 100) + $this::POSTAGE_PRICE + $this::PROFIT_PRICE;
+        $salePrice = $item->price
+            + intval($item->price * $this::PLATFORM_FEE_PER / 100)
+            + $this::POSTAGE_PRICE + $this::PROFIT_PRICE;
 
         $data = [
             '',                                                         // 商品ID
