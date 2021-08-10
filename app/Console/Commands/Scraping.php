@@ -271,7 +271,7 @@ class Scraping extends Command
         while ($hierarchy > 0)
         {
             $jsonStartPos = strpos($html, $target, $offset);
-            $offset = $jsonStartPos;
+            $offset = $jsonStartPos + strlen($target);
             $hierarchy--;
 
             if ($jsonStartPos > 0 && $hierarchy <= 0)
@@ -280,7 +280,7 @@ class Scraping extends Command
                 return $this->getList($html, $jsonStartPos);
             }
         }
-        return "";
+        return [""];
     }
 
     private function getList($html, $jsonStartPos)
